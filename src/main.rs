@@ -1,19 +1,21 @@
 mod ffi;
 mod trustonic;
+mod brute;
 mod menu;
 
 use std::env;
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    // Always show the banner (to stderr)
+    // Always print the ASCII banner
     menu::print_ascii_menu();
 
-    // No command provided
+    let args: Vec<String> = env::args().collect();
+
     if args.len() < 2 {
         eprintln!("Usage:");
         eprintln!("  ./tee_time trustonic <UUID> <TCI bytes...>");
+        eprintln!("  ./tee_time brute");
+        eprintln!();
         eprintln!("Example:");
         eprintln!("  ./tee_time trustonic 07010000000000000000000000000000 01 ff 00");
         return;
@@ -25,10 +27,6 @@ fn main() {
                 eprintln!("❌ Usage: ./tee_time trustonic <UUID> <TCI bytes>");
                 return;
             }
-
-            // Load Trustonic lib first
-            let _ = ffi::load_trustonic_lib("/vendor/lib64/libTeeClient.so")
-                .expect("Failed to load Trustonic lib");
 
             let uuid_str = &args[2];
             let uuid_bytes = match hex::decode(uuid_str) {
@@ -46,6 +44,12 @@ fn main() {
 
             if command_bytes.is_empty() {
                 eprintln!("❌ Invalid command bytes.");
+                return;
+            }
+
+            // Load Trustonic lib (auto-detect path)
+            if let Err(e) = ffi::load_trustonic_lib() {
+                eprintln!("❌ Failed to load Trustonic lib: {e}");
                 return;
             }
 
@@ -68,6 +72,10 @@ fn main() {
                     eprintln!("❌ TCI command failed: {e}");
                 }
             }
+        }
+
+        "brute" => {
+            brute::run();
         }
 
         _ => {

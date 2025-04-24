@@ -34,12 +34,28 @@ pub struct TrustonicLib<'lib> {
 static INIT: Once = Once::new();
 static mut LIB: Option<Box<TrustonicLib<'static>>> = None;
 
-pub fn load_trustonic_lib(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn load_trustonic_lib() -> Result<(), Box<dyn std::error::Error>> {
     INIT.call_once(|| {
-        // Leak the Library to get a 'static reference
-        let lib = Box::leak(Box::new(unsafe {
-            Library::new(path).expect("Failed to load libTeeClient")
-        }));
+        // Try the 64-bit lib path first (most likely on ARM64 devices)
+        let paths = [
+            "/vendor/lib64/libTeeClient.so",
+            "/system/lib64/libTeeClient.so",
+            "/vendor/lib/libTeeClient.so", // fallback to 32-bit (only if compiled for 32-bit)
+            "/system/lib/libTeeClient.so",
+        ];
+
+        let lib = paths
+            .iter()
+            .find_map(|&path| {
+                eprintln!("🔍 Trying to load Trustonic TEE from: {}", path);
+                unsafe { Library::new(path).ok().map(|lib| (path, lib)) }
+            })
+            .expect("❌ Failed to load any known Trustonic TEE client library");
+
+        let (used_path, lib) = lib;
+        let lib = Box::leak(Box::new(lib));
+
+        eprintln!("✅ Successfully loaded Trustonic lib from: {}", used_path);
 
         unsafe {
             LIB = Some(Box::new(TrustonicLib {
@@ -49,13 +65,14 @@ pub fn load_trustonic_lib(path: &str) -> Result<(), Box<dyn std::error::Error>> 
                 mc_close_session: lib.get(b"mcCloseSession\0").unwrap(),
                 mc_notify: lib.get(b"mcNotify\0").unwrap(),
                 mc_wait_notification: lib.get(b"mcWaitNotification\0").unwrap(),
-                _lib: lib, // reference to prevent drop
+                _lib: lib,
             }));
         }
     });
 
     Ok(())
 }
+
 
 pub fn trustonic() -> &'static TrustonicLib<'static> {
     unsafe { LIB.as_ref().expect("TrustonicLib not loaded") }

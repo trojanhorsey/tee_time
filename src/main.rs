@@ -3,6 +3,8 @@ mod trustonic;
 mod brute;
 mod menu;
 mod discover;
+mod analyze;
+
 
 use std::env;
 
@@ -37,6 +39,9 @@ fn main() {
             let handshake = args.get(2).map_or(false, |arg| arg == "--handshake");
             discover::discover_trustonic_tas(handshake);
             return;
+        }
+        "analyze" => {
+            analyze::analyze_environment();
         }
 
         _ => {

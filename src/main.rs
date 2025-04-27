@@ -2,11 +2,12 @@ mod ffi;
 mod trustonic;
 mod brute;
 mod menu;
+mod discover;
 
 use std::env;
 
 fn main() {
-    // Always print the ASCII banner
+    // Always print the ASCII art logo
     menu::print_ascii_menu();
 
     let args: Vec<String> = env::args().collect();
@@ -15,6 +16,7 @@ fn main() {
         eprintln!("Usage:");
         eprintln!("  ./tee_time trustonic <UUID> <TCI bytes...>");
         eprintln!("  ./tee_time brute");
+        eprintln!("  ./tee_time discover");
         eprintln!();
         eprintln!("Example:");
         eprintln!("  ./tee_time trustonic 07010000000000000000000000000000 01 ff 00");
@@ -47,7 +49,7 @@ fn main() {
                 return;
             }
 
-            // Load Trustonic lib (auto-detect path)
+            // Load Trustonic lib (auto-detects path)
             if let Err(e) = ffi::load_trustonic_lib() {
                 eprintln!("❌ Failed to load Trustonic lib: {e}");
                 return;
@@ -58,9 +60,9 @@ fn main() {
 
             let lib = ffi::trustonic();
             match trustonic::send_tci_command(lib, &uuid, &command_bytes) {
-                Ok(resp) => {
+                Ok(response) => {
                     eprintln!("✅ Response:");
-                    for (i, b) in resp.iter().enumerate() {
+                    for (i, b) in response.iter().enumerate() {
                         eprint!("{:02x} ", b);
                         if (i + 1) % 16 == 0 {
                             eprintln!();
@@ -76,6 +78,10 @@ fn main() {
 
         "brute" => {
             brute::run();
+        }
+
+        "discover" => {
+            discover::discover_trustonic_tas();
         }
 
         _ => {
